@@ -1,0 +1,81 @@
+from langchain_openai import ChatOpenAI
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+from openai import OpenAI
+import os
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from pydantic import BaseModel
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationBufferMemory
+import time
+#history
+chat_history={}
+
+#.env loading
+load_dotenv()
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+chat_model=ChatOpenAI(temperature=0.4,api_key=OPENAI_KEY,model='gpt-4o')#starting
+
+sys_prompt= """
+You are an information extraction assistant.
+
+Your task:
+- Read the user’s message.
+- Extract the person's full name and phone number(only mobile phone).
+
+Rules:
+- Always return the result in JSON format only.
+- If no name or phone number is found, return null for that field.
+- Do not include any explanation or extra text.
+
+Format:
+{
+  "name": "string or null",
+  "phone_number": "string or null"
+}
+
+Examples:
+User: "Hello, my name is Ahmed Ali, my phone is +201234567890"
+AI: { "name": "Ahmed Ali", "phone_number": "+201234567890" }
+
+User: "Contact Sara at 01098765432"
+AI: { "name": "Sara", "phone_number": "01098765432" }
+
+User: "No phone number here"
+AI: { "name": null, "phone_number": null }
+
+"""
+
+#memory=ConversationBufferMemory(return_messages=True)
+#conversation = ConversationChain(llm=chat_model, memory=memory, verbose=True)
+#app=FastAPI()
+class Input(BaseModel):
+    message:str
+    user_id:str
+
+app=FastAPI()
+
+@app.post("/chat")
+def chat(input:Input):
+    if input.user_id not in chat_history.keys():
+        chat_history.update({input.user_id:[SystemMessage(content=sys_prompt)]})     #chat_history.update({input.user_id:SystemMessage(content=sys_prompt)}) wrong
+    user_prompt=input.message
+    wrapped_user_prompt=HumanMessage(content=user_prompt)     #user message
+    
+    chat_history[input.user_id].append(wrapped_user_prompt.content)#saving user message
+    t1=time.time()
+    
+    output=chat_model.invoke(chat_history[input.user_id])#getting model answer
+    
+    latency=time.time()-t1
+    chat_history[input.user_id].append(output.content)
+    
+    return{
+        "latency": latency,
+        'user_id' : input.user_id,
+        'AI_output' : output.content
+        
+    }    
+
+
+#next we willtry connecting a vector database, but for now we will keep it as a list
