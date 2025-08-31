@@ -8,6 +8,8 @@ from pydantic import BaseModel
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 import time
+import asyncio
+
 #history
 chat_history={}
 
@@ -46,6 +48,12 @@ AI: { "name": null, "phone_number": null }
 
 """
 
+#Hey there! This is Dr. Mona El-Sayed, you can reach me on my mobile at +201112223334. Also, my assistant Karim Hassan can be contacted at 01122334455, but only call him if I’m unavailable. By the way, my office number is 02-33445566.
+
+
+
+
+
 #memory=ConversationBufferMemory(return_messages=True)
 #conversation = ConversationChain(llm=chat_model, memory=memory, verbose=True)
 #app=FastAPI()
@@ -56,7 +64,7 @@ class Input(BaseModel):
 app=FastAPI()
 
 @app.post("/chat")
-def chat(input:Input):
+async def chat(input:Input):
     if input.user_id not in chat_history.keys():
         chat_history.update({input.user_id:[SystemMessage(content=sys_prompt)]})     #chat_history.update({input.user_id:SystemMessage(content=sys_prompt)}) wrong
     user_prompt=input.message
@@ -65,7 +73,7 @@ def chat(input:Input):
     chat_history[input.user_id].append(wrapped_user_prompt.content)#saving user message
     t1=time.time()
     
-    output=chat_model.invoke(chat_history[input.user_id])#getting model answer
+    output=await chat_model.ainvoke(chat_history[input.user_id])#getting model answer    what is achat???#
     
     latency=time.time()-t1
     chat_history[input.user_id].append(output.content)
